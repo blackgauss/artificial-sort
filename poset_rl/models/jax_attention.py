@@ -49,6 +49,36 @@ def _pair_features(known: np.ndarray) -> np.ndarray:
 if _JAX_OK:
     from poset_rl.models import register
 
+    def _pair_features_jax(obs_batch: jnp.ndarray) -> jnp.ndarray:
+        """Convert (B, n²) obs to (B, P, 6) pair features using pure JAX ops.
+
+        All operations are JAX primitives so this function is safe to call
+        inside jax.jit / nnx.jit traced contexts.  n is a static Python int
+        (known at trace time from the array shape), so the Python loop over
+        pairs is unrolled at compile time.
+        """
+        n = int(round(obs_batch.shape[-1] ** 0.5))
+        known = obs_batch.reshape(-1, n, n).astype(jnp.float32)  # (B, n, n)
+
+        pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+        feat_cols = []
+        for i, j in pairs:
+            resolved = (known[:, i, j] != 0).astype(jnp.float32)
+            out_i    = (known[:, i, :] == 1).sum(axis=-1) / n
+            out_j    = (known[:, j, :] == 1).sum(axis=-1) / n
+            in_i     = (known[:, :, i] == -1).sum(axis=-1) / n
+            in_j     = (known[:, :, j] == -1).sum(axis=-1) / n
+            gain_ij  = ((known[:, :, i] == 1).sum(axis=-1) *
+                        (known[:, j, :] == 1).sum(axis=-1)) / (n * n)
+            gain_ji  = ((known[:, :, j] == 1).sum(axis=-1) *
+                        (known[:, i, :] == 1).sum(axis=-1)) / (n * n)
+            gain     = jnp.maximum(gain_ij, gain_ji)
+            feat_cols.append(
+                jnp.stack([resolved, out_i, out_j, in_i, in_j, gain], axis=-1)
+            )  # each (B, 6)
+
+        return jnp.stack(feat_cols, axis=1)  # (B, P, 6)
+
     # ------------------------------------------------------------------ blocks
 
     class _MHSelfAttn(nnx.Module):
@@ -120,18 +150,13 @@ if _JAX_OK:
             obs:  jnp.ndarray,              # (B, n²) raw obs  OR  (B, P, FEAT_DIM) pre-computed
             mask: jnp.ndarray | None = None,   # (B, P) bool
         ):
-            # Auto-detect: if last dim == PAIR_FEAT_DIM it's already pair features;
-            # otherwise treat as flat n² obs and compute features here.
+            # Auto-detect input format:
+            #   (B, P, FEAT_DIM) — already pair features, pass straight through
+            #   (B, n²)          — raw obs, convert via pure-JAX _pair_features_jax
             if obs.ndim == 3 and obs.shape[-1] == PAIR_FEAT_DIM:
-                feats = obs  # already (B, P, FEAT_DIM)
+                feats = obs
             else:
-                # obs is (B, n²) — convert each row to pair features
-                B = obs.shape[0]
-                n = int(round(obs.shape[-1] ** 0.5))
-                feats = jnp.array(
-                    np.stack([_pair_features(obs[b].reshape(n, n)) for b in range(B)]),
-                    dtype=jnp.float32,
-                )
+                feats = _pair_features_jax(obs)  # JAX ops only — JIT-safe
             x = self.embed(feats)
             for blk in self.blocks:
                 x = blk(x)
