@@ -226,19 +226,18 @@ def train_jax(
             n = ns[(ep - 1) % len(ns)]
 
             rng, ep_key = jax.random.split(rng)
-            obs_arr, mask_arr, actions, rewards, steps = run_episode_jax(
+            obs_arr, mask_arr, actions, returns, valid, steps = run_episode_jax_padded(
                 model, n, ep_key
             )
 
-            returns = discount_returns_jax(rewards, gamma)
-
-            # convert to jax arrays for the forward/backward pass
+            # convert to jax arrays for the forward/backward pass — fixed shape per n
             obs_j  = jnp.array(obs_arr)
             mask_j = jnp.array(mask_arr)
             act_j  = jnp.array(actions)
+            ret_j  = jnp.array(returns)
 
             loss = train_step_jax(
-                model, optimizer, obs_j, mask_j, act_j, returns, value_coef
+                model, optimizer, obs_j, mask_j, act_j, ret_j, value_coef
             )
 
             row = dict(episode=ep, n=n, steps=steps, loss=loss)
