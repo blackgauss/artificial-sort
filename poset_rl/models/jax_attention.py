@@ -22,8 +22,29 @@ try:
 except ImportError:
     _JAX_OK = False
 
-# reuse the same numpy feature extractor
-from poset_rl.models.attention import _pair_features, PAIR_FEAT_DIM
+# _pair_features is pure numpy — but attention.py imports torch at module level,
+# so we duplicate the small helper here to avoid a hard torch dependency.
+PAIR_FEAT_DIM = 6
+
+def _pair_features(known: np.ndarray) -> np.ndarray:
+    """Symmetric 6-dim feature vector per unordered pair (i,j), i<j."""
+    n = known.shape[0]
+    pairs = [(i, j) for i in range(n) for j in range(i + 1, n)]
+    feats = np.zeros((len(pairs), PAIR_FEAT_DIM), dtype=np.float32)
+    for k, (i, j) in enumerate(pairs):
+        resolved   = float(known[i, j] != 0)
+        out_i      = int((known[i, :] == 1).sum())
+        out_j      = int((known[j, :] == 1).sum())
+        in_i       = int((known[:, i] == -1).sum())
+        in_j       = int((known[:, j] == -1).sum())
+        gain_ij    = int((known[:, i] == 1).sum()) * int((known[j, :] == 1).sum())
+        gain_ji    = int((known[:, j] == 1).sum()) * int((known[i, :] == 1).sum())
+        gain       = max(gain_ij, gain_ji) / max(n * n, 1)
+        feats[k]   = [resolved,
+                      out_i / n, out_j / n,
+                      in_i  / n, in_j  / n,
+                      gain]
+    return feats
 
 if _JAX_OK:
     from poset_rl.models import register
