@@ -117,9 +117,21 @@ if _JAX_OK:
 
         def __call__(
             self,
-            feats: jnp.ndarray,             # (B, P, FEAT_DIM)
-            mask:  jnp.ndarray | None = None,  # (B, P) bool
+            obs:  jnp.ndarray,              # (B, n²) raw obs  OR  (B, P, FEAT_DIM) pre-computed
+            mask: jnp.ndarray | None = None,   # (B, P) bool
         ):
+            # Auto-detect: if last dim == PAIR_FEAT_DIM it's already pair features;
+            # otherwise treat as flat n² obs and compute features here.
+            if obs.ndim == 3 and obs.shape[-1] == PAIR_FEAT_DIM:
+                feats = obs  # already (B, P, FEAT_DIM)
+            else:
+                # obs is (B, n²) — convert each row to pair features
+                B = obs.shape[0]
+                n = int(round(obs.shape[-1] ** 0.5))
+                feats = jnp.array(
+                    np.stack([_pair_features(obs[b].reshape(n, n)) for b in range(B)]),
+                    dtype=jnp.float32,
+                )
             x = self.embed(feats)
             for blk in self.blocks:
                 x = blk(x)
