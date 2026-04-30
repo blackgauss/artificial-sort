@@ -1,0 +1,23 @@
+name: attention_curriculum
+
+model:
+  name: attention
+  hidden: 64
+  nhead: 2
+  nlayers: 1
+  kwargs: {}
+
+train:
+  n_or_range: [3, 4, 5, 6]
+  episodes: 3000
+  lr: 0.003
+  gamma: 0.99
+  grad_clip: 1.0
+  value_coef: 0.5
+  log_interval: 500
+  seed: 42
+  out_csv: attn_training.csv
+
+eval:
+  ns: [3, 4, 5, 6]
+  episodes: 300

@@ -1,0 +1,76 @@
+# docker-compose.yml — local dev + GB10 deployment
+#
+# Usage:
+#   Local CPU dev:
+#     docker compose run cpu python -m poset_rl.train --config configs/mlp_n5.yaml
+#
+#   GB10 (requires NVIDIA Container Toolkit):
+#     docker compose run gb10 poset_rl.train --config configs/gb10_large.yaml
+#     docker compose run gb10 poset_rl.sweep --config configs/gb10_large.yaml --n-seeds 64
+#
+#   Jupyter notebook server (CPU):
+#     docker compose up notebook
+#     Then open http://localhost:8888
+
+services:
+
+  # ── CPU development image ──────────────────────────────────────────────────
+  cpu:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.cpu
+    image: artificial-sort:cpu
+    volumes:
+      - ./runs:/app/runs          # persist training outputs
+      - ./configs:/app/configs    # live-edit configs without rebuild
+      - ./notebooks:/app/notebooks
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  # ── GB10 / Blackwell GPU image ─────────────────────────────────────────────
+  gb10:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gb10
+    image: artificial-sort:gb10
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ./runs:/app/runs
+      - ./configs:/app/configs
+      - ./notebooks:/app/notebooks
+    environment:
+      - PYTHONUNBUFFERED=1
+      - XLA_PYTHON_CLIENT_PREALLOCATE=false
+      # Tune this to the fraction of 128 GB you want JAX to preallocate.
+      # 0.75 → ~96 GB; set lower if other processes share the device.
+      - XLA_PYTHON_CLIENT_MEM_FRACTION=0.75
+      - CUDA_VISIBLE_DEVICES=0
+
+  # ── Jupyter notebook server (CPU) ─────────────────────────────────────────
+  notebook:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.cpu
+    image: artificial-sort:cpu
+    entrypoint: ["python", "-m", "jupyter"]
+    command:
+      - notebook
+      - --ip=0.0.0.0
+      - --port=8888
+      - --no-browser
+      - --allow-root
+      - --NotebookApp.token=''
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/app/notebooks
+      - ./runs:/app/runs
+      - ./configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1

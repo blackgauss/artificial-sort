@@ -1,0 +1,35 @@
+# ── CPU-only image ────────────────────────────────────────────────────────────
+# Suitable for local dev, CI, and machines without a GPU.
+# Build:
+#   docker build -f docker/Dockerfile.cpu -t artificial-sort:cpu .
+# Run:
+#   docker run --rm -v $(pwd)/runs:/app/runs artificial-sort:cpu \
+#     python -m poset_rl.train --config configs/attention_curriculum.yaml
+
+FROM python:3.12-slim
+
+# ── system deps ──────────────────────────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# ── install package + torch + jax[cpu] ───────────────────────────────────────
+COPY pyproject.toml README.md LICENSE ./
+COPY poset_rl/ ./poset_rl/
+COPY configs/  ./configs/
+
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir ".[torch]" \
+ && pip install --no-cache-dir "jax[cpu]>=0.4.26" flax>=0.9 optax>=0.2
+
+# ── runtime dirs ─────────────────────────────────────────────────────────────
+RUN mkdir -p runs notebooks
+
+# persist training outputs via a mount point
+VOLUME ["/app/runs"]
+
+ENTRYPOINT ["python", "-m"]
+CMD ["poset_rl.train", "--help"]

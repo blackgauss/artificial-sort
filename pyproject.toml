@@ -4,26 +4,52 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "artificial-sort"
-version = "0.1.0"
-description = "RL agent that learns efficient sorting strategies on partially-ordered sets"
+version = "0.3.0"
+description = "RL environment for learning efficient sorting strategies on partially-ordered sets"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
-train = [
+torch = [
     "torch>=2.0",
+]
+jax = [
+    "jax>=0.4",
+    "flax>=0.9",
+    "optax>=0.2",
+]
+# ASUS NUC / NVIDIA DGX Spark — GB10 Grace Blackwell, aarch64 + CUDA 12
+# Install: pip install "artificial-sort[gb10]"
+# Requires CUDA 12 driver; JAX ships a single wheel for aarch64+cuda12 since 0.4.26
+gb10 = [
+    "jax[cuda12]>=0.4.26",
+    "flax>=0.9",
+    "optax>=0.2",
+    "pyyaml>=6.0",
+]
+notebook = [
+    "torch>=2.0",
+    "jax>=0.4",
+    "flax>=0.9",
+    "optax>=0.2",
+    "matplotlib>=3.7",
+    "ipywidgets>=8.0",
 ]
 dev = [
     "pytest>=9",
     "torch>=2.0",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]
-poset-train = "train:main"
+poset-train = "poset_rl.train:main"
+poset-bench = "poset_rl.bench:main"
+poset-sweep = "poset_rl.sweep_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
