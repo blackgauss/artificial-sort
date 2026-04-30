@@ -13,11 +13,15 @@ from poset_rl.models import get_model, list_models, register
 from poset_rl.protocols import TorchAgent, JaxAgent, is_torch_agent, is_jax_agent
 from poset_rl.sweep import run_sweep, run_sweep_jax_batched, run_sweep_jax_vmapped, sweep_table
 
-# convenience re-exports for common models
-from poset_rl.models.mlp import ActorCritic
-from poset_rl.models.attention import AttentionActorCritic
+# convenience re-exports for common models — optional if torch not installed
+try:
+    import torch  # noqa: F401
+    from poset_rl.models.mlp import ActorCritic
+    from poset_rl.models.attention import AttentionActorCritic
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 
-TORCH_AVAILABLE = True
 try:
     import jax  # noqa: F401
     JAX_AVAILABLE = True
