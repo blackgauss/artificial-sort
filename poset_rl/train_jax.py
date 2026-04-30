@@ -124,7 +124,7 @@ def _jit_grad_step(model, optimizer, obs_arr, mask_arr, actions, returns,
     loss, grads = nnx.value_and_grad(loss_fn, argnums=0)(
         model, obs_arr, mask_arr, actions, returns
     )
-    optimizer.update(grads)
+    optimizer.update(model, grads)
     return loss
 
 

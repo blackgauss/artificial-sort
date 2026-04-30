@@ -184,7 +184,7 @@ def run_sweep_jax_vmapped(
         _, grads = nnx.value_and_grad(
             lambda m: jax.vmap(per_seed_loss)(obs_b, mask_b, acts_b, rets_b, valid_b).mean()
         )(model)
-        optimizer.update(grads)
+        optimizer.update(model, grads)
         return mean_loss
 
     # ── training loop ────────────────────────────────────────────────────────
@@ -318,7 +318,7 @@ def run_sweep_jax_batched(
             return total / len(seeds)
 
         loss, grads = nnx.value_and_grad(loss_fn)(model)
-        optimizer.update(grads)
+        optimizer.update(model, grads)
 
         mean_steps = float(np.mean(ep_steps))
         row = dict(episode=ep, n=n, steps=mean_steps, loss=float(loss))
