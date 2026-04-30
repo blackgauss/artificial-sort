@@ -1,0 +1,34 @@
+# GB10 Grace Blackwell — large curriculum model
+#
+# Designed for the ASUS NUC / NVIDIA DGX Spark (GB10 chip, 128 GB unified memory).
+# Uses the jax_attention model with a deep wide transformer so the 128 GB VRAM
+# is utilised rather than the tiny default hidden=64 model.
+#
+# Recommended launch:
+#   from poset_rl import run_sweep_jax_vmapped, ExperimentConfig
+#   cfg = ExperimentConfig.from_yaml("configs/gb10_large.yaml")
+#   model, history = run_sweep_jax_vmapped(cfg, n_seeds=64)
+
+name: gb10_large_curriculum
+
+model:
+  name: jax_attention
+  hidden: 512
+  nhead: 8
+  nlayers: 6
+  kwargs: {}
+
+train:
+  n_or_range: [4, 5, 6, 7, 8, 9, 10]
+  episodes: 50000
+  lr: 0.0003
+  gamma: 0.99
+  grad_clip: 1.0
+  value_coef: 0.5
+  log_interval: 500
+  seed: 42
+  out_csv: runs/gb10_large.csv
+
+eval:
+  ns: [5, 6, 7, 8, 9, 10]
+  episodes: 500

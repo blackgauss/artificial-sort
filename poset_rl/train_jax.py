@@ -25,6 +25,7 @@ from poset_rl.env import PosetEnv
 
 __all__ = [
     "run_episode_jax",
+    "run_episode_jax_padded",
     "discount_returns_jax",
     "train_step_jax",
     "train_jax",
@@ -96,6 +97,37 @@ def discount_returns_jax(
 # Train step  (differentiate through a full episode)
 # ---------------------------------------------------------------------------
 
+def _make_loss_fn(value_coef: float = 0.5):
+    """Return a JIT-able loss function closed over value_coef.
+
+    Separating the closure from the gradient call lets JAX compile the XLA
+    kernel once per (model_structure, value_coef) pair rather than re-tracing
+    on every episode.
+    """
+    def loss_fn(model, obs_arr, mask_arr, actions, returns):
+        logits, values = model(obs_arr, mask_arr)        # (T, A), (T,)
+        log_probs = jax.nn.log_softmax(logits, axis=-1)
+        lp        = log_probs[jnp.arange(len(actions)), actions]
+        advantage = jax.lax.stop_gradient(returns - values)
+        actor_loss  = -(lp * advantage).mean()
+        critic_loss = value_coef * jnp.mean((returns - values) ** 2)
+        return actor_loss + critic_loss
+    return loss_fn
+
+
+# JIT-compiled grad function — compiled once, reused every episode.
+# The model (graph module) is differentiated; all arrays are traced.
+@nnx.jit
+def _jit_grad_step(model, optimizer, obs_arr, mask_arr, actions, returns,
+                   value_coef=0.5):
+    loss_fn = _make_loss_fn(value_coef)
+    loss, grads = nnx.value_and_grad(loss_fn, argnums=0)(
+        model, obs_arr, mask_arr, actions, returns
+    )
+    optimizer.update(grads)
+    return loss
+
+
 def train_step_jax(
     model,
     optimizer,
@@ -105,26 +137,53 @@ def train_step_jax(
     returns:   jnp.ndarray,   # (T,)          float32  (normalised)
     value_coef: float = 0.5,
 ) -> float:
-    """One REINFORCE-with-baseline gradient step.
-
-    Re-evaluates the model on the stored (obs, mask) batch so gradients flow
-    through the policy and value heads.
-    """
-    def loss_fn(model):
-        logits, values = model(obs_arr, mask_arr)   # (T, A), (T,)
-        log_probs = jax.nn.log_softmax(logits, axis=-1)
-        # gather log-prob of the action taken at each timestep
-        lp = log_probs[jnp.arange(len(actions)), actions]
-
-        advantage   = jax.lax.stop_gradient(returns - values)
-        actor_loss  = -(lp * advantage).mean()
-        critic_loss = value_coef * (returns - values).pow(2).mean() \
-                      if False else value_coef * jnp.mean((returns - values) ** 2)
-        return actor_loss + critic_loss
-
-    loss, grads = nnx.value_and_grad(loss_fn)(model)
-    optimizer.update(grads)
+    """One REINFORCE-with-baseline gradient step (JIT-compiled)."""
+    loss = _jit_grad_step(model, optimizer, obs_arr, mask_arr, actions, returns,
+                          value_coef)
     return float(loss)
+
+
+# ---------------------------------------------------------------------------
+# Padded episode  — fixed-length tensors required for jax.vmap
+# ---------------------------------------------------------------------------
+
+def run_episode_jax_padded(model, n: int, rng_key: jax.Array):
+    """Like run_episode_jax but pads every tensor to max_steps = n*(n-1)//2.
+
+    Returns arrays of **static shape** so they can be stacked across seeds and
+    passed to jax.vmap / jax.lax.map without recompilation.
+
+    Returns
+    -------
+    obs_arr   : np.ndarray  (max_steps, n*n)
+    mask_arr  : np.ndarray  (max_steps, n*(n-1)//2)
+    actions   : np.ndarray  (max_steps,) int32
+    returns   : np.ndarray  (max_steps,) float32  (padded positions = 0)
+    valid     : np.ndarray  (max_steps,) bool      — True for real steps
+    steps     : int
+    """
+    obs_arr, mask_arr, actions, rewards, steps = run_episode_jax(model, n, rng_key)
+    T        = len(rewards)
+    max_T    = n * (n - 1) // 2
+
+    ret_arr  = np.array(discount_returns_jax(rewards), dtype=np.float32)
+    valid    = np.zeros(max_T, dtype=bool)
+    valid[:T] = True
+
+    def pad(arr, fill=0.0):
+        pad_rows = max_T - T
+        if arr.ndim == 1:
+            return np.concatenate([arr, np.full(pad_rows, fill, dtype=arr.dtype)])
+        return np.concatenate([arr, np.zeros((pad_rows, arr.shape[1]), dtype=arr.dtype)])
+
+    return (
+        pad(obs_arr),
+        pad(mask_arr),
+        pad(actions, fill=0).astype(np.int32),
+        pad(ret_arr),
+        valid,
+        steps,
+    )
 
 
 # ---------------------------------------------------------------------------

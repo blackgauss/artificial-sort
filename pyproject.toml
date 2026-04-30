@@ -23,6 +23,15 @@ jax = [
     "flax>=0.9",
     "optax>=0.2",
 ]
+# ASUS NUC / NVIDIA DGX Spark — GB10 Grace Blackwell, aarch64 + CUDA 12
+# Install: pip install "artificial-sort[gb10]"
+# Requires CUDA 12 driver; JAX ships a single wheel for aarch64+cuda12 since 0.4.26
+gb10 = [
+    "jax[cuda12]>=0.4.26",
+    "flax>=0.9",
+    "optax>=0.2",
+    "pyyaml>=6.0",
+]
 notebook = [
     "torch>=2.0",
     "jax>=0.4",
