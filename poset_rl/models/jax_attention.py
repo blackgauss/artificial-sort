@@ -107,10 +107,10 @@ if _JAX_OK:
             **_,
         ):
             self.embed   = nnx.Linear(PAIR_FEAT_DIM, hidden, rngs=rngs)
-            self.blocks  = [
+            self.blocks  = nnx.List([
                 _TransformerBlock(hidden, nhead, rngs=rngs)
                 for _ in range(nlayers)
-            ]
+            ])
             self.policy  = nnx.Linear(hidden, 1, rngs=rngs)
             self.value_h = nnx.Linear(hidden, hidden, rngs=rngs)
             self.value_o = nnx.Linear(hidden, 1, rngs=rngs)
