@@ -238,8 +238,14 @@ def main():
     parser = argparse.ArgumentParser(
         description="Train a Poset RL agent to minimise comparison count."
     )
-    parser.add_argument("--n", type=int, default=5,
-                        help="Poset size (ignored when --curriculum is set)")
+    # ── config-driven mode (preferred) ────────────────────────────────────
+    parser.add_argument("--config", type=str, default=None,
+                        help="Path to an ExperimentConfig YAML file. "
+                             "When provided all other flags are ignored.")
+    parser.add_argument("--device", type=str, default=None,
+                        help="Force device: cpu / cuda / mps  (default: auto)")
+    # ── legacy flags (used when --config is not given) ────────────────────
+    parser.add_argument("--n", type=int, default=5)
     parser.add_argument("--episodes", type=int, default=2000)
     parser.add_argument("--hidden", type=int, default=64)
     parser.add_argument("--lr", type=float, default=3e-3)
@@ -257,10 +263,20 @@ def main():
     parser.add_argument("--curriculum", action="store_true")
     parser.add_argument("--n_min", type=int, default=3)
     parser.add_argument("--n_max", type=int, default=10)
-    parser.add_argument("--device", type=str, default=None,
-                        help="Force device: cpu / cuda / mps  (default: auto)")
     args = parser.parse_args()
 
+    # ── config-driven path ─────────────────────────────────────────────────
+    if args.config:
+        from poset_rl.config import ExperimentConfig
+        cfg = ExperimentConfig.from_yaml(args.config)
+        print(f"Config  : {args.config}  ({cfg.name})")
+        print(f"Model   : {cfg.model.name}  hidden={cfg.model.hidden}")
+        print(f"Train   : n={cfg.train.n_or_range}  episodes={cfg.train.episodes}")
+        model, history = train_from_config(cfg, device=args.device)
+        print(f"\nTraining complete. Log → {cfg.train.out_csv}")
+        return
+
+    # ── legacy path ────────────────────────────────────────────────────────
     from poset_rl.model import ActorCritic
     from poset_rl.attention_model import AttentionActorCritic
 
