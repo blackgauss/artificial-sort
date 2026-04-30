@@ -33,12 +33,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.12 \
         python3.12-dev \
         python3.12-venv \
-        python3-pip \
+        curl \
         git \
         build-essential \
     && ln -sf /usr/bin/python3.12 /usr/bin/python \
     && ln -sf /usr/bin/python3.12 /usr/bin/python3 \
     && rm -rf /var/lib/apt/lists/*
+
+# ── install uv (avoids system pip / distutils issues with Python 3.12) ───────
+RUN curl -Ls https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
 
 WORKDIR /app
 
@@ -48,8 +52,11 @@ COPY poset_rl/ ./poset_rl/
 COPY configs/  ./configs/
 
 # jax[cuda12] resolves the correct aarch64+CUDA wheel automatically since 0.4.26
-RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir ".[gb10]"
+RUN uv venv /app/.venv --python python3.12 \
+ && uv pip install --python /app/.venv/bin/python --no-cache ".[gb10]"
+
+ENV PATH="/app/.venv/bin:$PATH"
+ENV VIRTUAL_ENV="/app/.venv"
 
 # ── JAX GPU visibility — let the runtime override via env vars ───────────────
 ENV XLA_PYTHON_CLIENT_PREALLOCATE=false
