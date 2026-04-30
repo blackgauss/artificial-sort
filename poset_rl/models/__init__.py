@@ -34,9 +34,13 @@ def list_models():
     return list(_REGISTRY.keys())
 
 
-# ── trigger registration decorators ───────────────────────────────────────
-from poset_rl.models import mlp        # noqa: E402 F401
-from poset_rl.models import attention  # noqa: E402 F401
+# ── trigger registration decorators — skip silently if deps missing ────────
+try:
+    from poset_rl.models import mlp        # noqa: E402 F401
+    from poset_rl.models import attention  # noqa: E402 F401
+except ImportError:
+    pass  # torch not installed — JAX-only mode
+
 try:
     from poset_rl.models import jax_mlp        # noqa: E402 F401
     from poset_rl.models import jax_attention  # noqa: E402 F401
