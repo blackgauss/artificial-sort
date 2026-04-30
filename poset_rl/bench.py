@@ -103,9 +103,10 @@ def evaluate_model(
 ) -> Dict[int, float]:
     """Return ``{n: mean_steps}`` for each n in *ns*.
 
-    Handles both PyTorch models (`.select_action`) and JAX/Flax models (`.act`).
+    Handles any model that satisfies ``TorchAgent`` or ``JaxAgent`` protocol.
     """
-    is_jax = hasattr(model, "act") and not hasattr(model, "select_action")
+    from poset_rl.protocols import is_jax_agent
+    is_jax = is_jax_agent(model)
 
     if is_jax:
         import jax

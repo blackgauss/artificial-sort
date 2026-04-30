@@ -10,6 +10,7 @@ from poset_rl.env import PosetEnv
 from poset_rl.datasets import make_sampler
 from poset_rl.config import ExperimentConfig, ModelConfig, TrainConfig, EvalConfig
 from poset_rl.models import get_model, list_models, register
+from poset_rl.protocols import TorchAgent, JaxAgent, is_torch_agent, is_jax_agent
 from poset_rl.sweep import run_sweep, run_sweep_jax_batched, sweep_table
 
 # convenience re-exports for common models
@@ -28,6 +29,7 @@ __all__ = [
     "make_sampler",
     "ExperimentConfig", "ModelConfig", "TrainConfig", "EvalConfig",
     "get_model", "list_models", "register",
+    "TorchAgent", "JaxAgent", "is_torch_agent", "is_jax_agent",
     "run_sweep", "run_sweep_jax_batched", "sweep_table",
     "ActorCritic", "AttentionActorCritic",
     "TORCH_AVAILABLE", "JAX_AVAILABLE",

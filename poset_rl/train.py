@@ -53,25 +53,30 @@ def discount_returns(rewards: List[float], gamma: float = 1.0) -> List[float]:
 def run_episode(env: PosetEnv, model):
     """Run one episode with *model* on *env*.
 
-    Supports both MLP ``ActorCritic`` and ``AttentionActorCritic``.
+    Accepts any model that satisfies the ``TorchAgent`` protocol, i.e. exposes
+    ``select_action(obs, mask) -> (action, log_prob, value)``.  The observation
+    passed is always the flat n²-vector ``obs`` returned by ``env.step``; models
+    that internally need the 2-D ``env.known`` matrix should reshape it themselves.
 
     Returns
     -------
     transitions : list of (log_prob, value, reward)
     steps       : int  — number of explicit comparisons made
     """
-    from poset_rl.attention_model import AttentionActorCritic
-    use_attention = isinstance(model, AttentionActorCritic)
+    from poset_rl.protocols import is_torch_agent
+    if not is_torch_agent(model):
+        raise TypeError(
+            f"{type(model).__name__} does not implement TorchAgent "
+            "(must have a select_action(obs, mask) method). "
+            "For JAX models use train_jax.run_episode_jax instead."
+        )
 
     obs = env.reset()
     done = False
     transitions = []
     while not done:
         mask = env.legal_actions_mask()
-        if use_attention:
-            action, log_prob, value = model.select_action(env.known, mask)
-        else:
-            action, log_prob, value = model.select_action(obs, mask)
+        action, log_prob, value = model.select_action(obs, mask)
         obs, reward, done, _ = env.step(action)
         transitions.append((log_prob, value, reward))
     return transitions, env.steps
