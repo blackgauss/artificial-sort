@@ -1,0 +1,23 @@
+name: jax_mlp_n5
+
+model:
+  name: jax_mlp
+  hidden: 64
+  nhead: 2
+  nlayers: 1
+  kwargs: {}
+
+train:
+  n_or_range: 5
+  episodes: 3000
+  lr: 0.003
+  gamma: 0.99
+  grad_clip: 1.0
+  value_coef: 0.5
+  log_interval: 500
+  seed: 42
+  out_csv: jax_mlp_n5_training.csv
+
+eval:
+  ns: [5]
+  episodes: 300

@@ -306,5 +306,84 @@ def main():
         print(f"Final {args.log_interval}-ep average steps: {final_avg:.2f}")
 
 
+# ---------------------------------------------------------------------------
+# Config-driven entry point  (framework-dispatching)
+# ---------------------------------------------------------------------------
+
+def train_from_config(cfg, device: str | None = None):
+    """Build a model from the registry and train using *cfg*.
+
+    Dispatches to :func:`train_jax` for ``model.name`` prefixed with ``jax_``,
+    or to :func:`train` for PyTorch models.
+
+    Returns
+    -------
+    model, history
+    """
+    import inspect
+    from poset_rl.models import get_model
+    from poset_rl.config import ExperimentConfig  # noqa: F401
+
+    mc  = cfg.model
+    tc  = cfg.train
+    cls = get_model(mc.name)
+
+    if mc.framework == "jax":
+        # ── JAX path ──────────────────────────────────────────────────────
+        import jax
+        from flax import nnx
+        from poset_rl.train_jax import train_jax
+
+        np.random.seed(tc.seed)
+        rngs = nnx.Rngs(tc.seed)
+
+        sig = inspect.signature(cls.__init__)
+        if "n" in sig.parameters:
+            n = tc.n_or_range if isinstance(tc.n_or_range, int) else max(tc.n_or_range)
+            model = cls(n=n, hidden=mc.hidden, rngs=rngs, **mc.kwargs)
+        else:
+            model = cls(hidden=mc.hidden, nhead=mc.nhead,
+                        nlayers=mc.nlayers, rngs=rngs, **mc.kwargs)
+
+        history = train_jax(
+            model,
+            n_or_range   = tc.n_or_range,
+            episodes     = tc.episodes,
+            lr           = tc.lr,
+            gamma        = tc.gamma,
+            value_coef   = tc.value_coef,
+            log_interval = tc.log_interval,
+            out_csv      = tc.out_csv,
+            seed         = tc.seed,
+        )
+        return model, history
+
+    else:
+        # ── PyTorch path ───────────────────────────────────────────────────
+        import torch
+        torch.manual_seed(tc.seed)
+        np.random.seed(tc.seed)
+
+        sig = inspect.signature(cls.__init__)
+        if "n" in sig.parameters:
+            n = tc.n_or_range if isinstance(tc.n_or_range, int) else max(tc.n_or_range)
+            model = cls(n=n, hidden=mc.hidden, **mc.kwargs)
+        else:
+            model = cls(hidden=mc.hidden, nhead=mc.nhead,
+                        nlayers=mc.nlayers, **mc.kwargs)
+
+        history = train(
+            model,
+            n_or_range   = tc.n_or_range,
+            episodes     = tc.episodes,
+            lr           = tc.lr,
+            gamma        = tc.gamma,
+            log_interval = tc.log_interval,
+            out_csv      = tc.out_csv,
+            device       = device,
+        )
+        return model, history
+
+
 if __name__ == "__main__":
     main()

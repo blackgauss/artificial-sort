@@ -101,10 +101,32 @@ def evaluate_model(
     dataset: str = "uniform",
     device: Optional[str] = None,
 ) -> Dict[int, float]:
-    """Return ``{n: mean_steps}`` for each n in *ns*."""
-    if not TORCH_AVAILABLE:
-        raise RuntimeError("PyTorch is required to evaluate learned models")
+    """Return ``{n: mean_steps}`` for each n in *ns*.
 
+    Handles both PyTorch models (`.select_action`) and JAX/Flax models (`.act`).
+    """
+    is_jax = hasattr(model, "act") and not hasattr(model, "select_action")
+
+    if is_jax:
+        import jax
+        from poset_rl.train_jax import run_episode_jax
+        rng = jax.random.PRNGKey(0)
+        results: Dict[int, float] = {}
+        for n in ns:
+            sampler = make_sampler(dataset, n)
+            steps_list = []
+            for _ in range(eval_eps):
+                env = sampler()
+                env.reset()
+                rng, subk = jax.random.split(rng)
+                _, _, _, _, steps = run_episode_jax(model, n, subk)
+                steps_list.append(steps)
+            results[n] = float(np.mean(steps_list))
+        return results
+
+    # ── PyTorch path ──────────────────────────────────────────────────────
+    if not TORCH_AVAILABLE:
+        raise RuntimeError("PyTorch is required to evaluate torch models")
     if device is None:
         if torch.cuda.is_available():
             device = "cuda"
@@ -114,7 +136,7 @@ def evaluate_model(
             device = "cpu"
     model.to(torch.device(device))
 
-    results: Dict[int, float] = {}
+    results = {}
     model.eval()
     with torch.no_grad():
         for n in ns:
