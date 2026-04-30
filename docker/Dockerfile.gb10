@@ -18,25 +18,26 @@
 #     artificial-sort:gb10 \
 #     poset_rl.sweep --config configs/gb10_large.yaml --n-seeds 64
 
-# nvidia/cuda base: CUDA 12.4, cuDNN, Ubuntu 24.04
-# - nvcr.io carries the aarch64 (sbsa) manifest; docker.io/nvidia/cuda does not
-#   for this tag combination.
-# - Ubuntu 24.04 matches the GB10 host OS (ubuntu2404/sbsa apt repo).
-# - Tag naming changed from `cudnn9-runtime` → `cudnn-runtime` in CUDA 12.4.
-FROM nvcr.io/nvidia/cuda:12.4.1-cudnn-runtime-ubuntu24.04
+# nvidia/cuda base: CUDA 12.4.1, cuDNN runtime, Ubuntu 22.04
+# Confirmed multi-arch manifest (amd64 + arm64) on Docker Hub.
+# ubuntu24.04 does not exist for CUDA 12.4 — ubuntu22.04 is the latest available.
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
 # ── system deps ──────────────────────────────────────────────────────────────
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common \
+        ca-certificates \
+    && add-apt-repository ppa:deadsnakes/ppa -y \
+    && apt-get update && apt-get install -y --no-install-recommends \
         python3.12 \
         python3.12-dev \
         python3.12-venv \
         python3-pip \
         git \
         build-essential \
-        ca-certificates \
     && ln -sf /usr/bin/python3.12 /usr/bin/python \
-    && ln -sf /usr/bin/python3    /usr/bin/python3 \
+    && ln -sf /usr/bin/python3.12 /usr/bin/python3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
