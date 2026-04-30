@@ -1,0 +1,59 @@
+# ── NVIDIA Blackwell / GB10 image (aarch64 + CUDA 12) ────────────────────────
+# Targets the ASUS NUC (GB10 Grace Blackwell Superchip, 128 GB unified memory).
+# Also works on any CUDA 12-capable x86_64 machine.
+#
+# Build (on the target machine or via cross-compilation):
+#   docker build -f docker/Dockerfile.gb10 -t artificial-sort:gb10 .
+#
+# Run (requires NVIDIA Container Toolkit):
+#   docker run --rm --gpus all \
+#     -v $(pwd)/runs:/app/runs \
+#     -v $(pwd)/configs:/app/configs \
+#     artificial-sort:gb10 \
+#     poset_rl.train --config configs/gb10_large.yaml
+#
+# For the vmapped multi-seed training:
+#   docker run --rm --gpus all \
+#     -v $(pwd)/runs:/app/runs \
+#     artificial-sort:gb10 \
+#     poset_rl.sweep --config configs/gb10_large.yaml --n-seeds 64
+
+# nvidia/cuda base: CUDA 12.4, cuDNN 9, Ubuntu 22.04
+# The aarch64 variant is selected automatically by Docker on GB10 hardware.
+FROM nvidia/cuda:12.4.1-cudnn9-runtime-ubuntu22.04
+
+# ── system deps ──────────────────────────────────────────────────────────────
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3.12 \
+        python3.12-dev \
+        python3-pip \
+        git \
+        build-essential \
+        ca-certificates \
+    && ln -sf /usr/bin/python3.12 /usr/bin/python \
+    && ln -sf /usr/bin/pip3       /usr/bin/pip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# ── install package ──────────────────────────────────────────────────────────
+COPY pyproject.toml README.md LICENSE ./
+COPY poset_rl/ ./poset_rl/
+COPY configs/  ./configs/
+
+# jax[cuda12] resolves the correct aarch64+CUDA wheel automatically since 0.4.26
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir ".[gb10]"
+
+# ── JAX GPU visibility — let the runtime override via env vars ───────────────
+ENV XLA_PYTHON_CLIENT_PREALLOCATE=false
+# Set to a fraction of unified memory to preallocate, e.g. 0.75 for 96 GB:
+ENV XLA_PYTHON_CLIENT_MEM_FRACTION=0.75
+
+# ── runtime dirs ─────────────────────────────────────────────────────────────
+RUN mkdir -p runs notebooks
+VOLUME ["/app/runs"]
+
+ENTRYPOINT ["python", "-m"]
+CMD ["poset_rl.train", "--help"]

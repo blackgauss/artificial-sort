@@ -49,6 +49,7 @@ dev = [
 [project.scripts]
 poset-train = "poset_rl.train:main"
 poset-bench = "poset_rl.bench:main"
+poset-sweep = "poset_rl.sweep_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
