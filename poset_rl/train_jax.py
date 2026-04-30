@@ -192,15 +192,16 @@ def run_episode_jax_padded(model, n: int, rng_key: jax.Array):
 
 def train_jax(
     model,
-    n_or_range:   Union[int, List[int]],
+    n_or_range:    Union[int, List[int]],
     *,
-    episodes:     int   = 3000,
-    lr:           float = 3e-3,
-    gamma:        float = 0.99,
-    value_coef:   float = 0.5,
-    log_interval: int   = 500,
-    out_csv:      str   = "training.csv",
-    seed:         int   = 42,
+    episodes:      int   = 3000,
+    lr:            float = 3e-3,
+    gamma:         float = 0.99,
+    value_coef:    float = 0.5,
+    log_interval:  int   = 500,
+    out_csv:       str   = "training.csv",
+    seed:          int   = 42,
+    batch_episodes: int  = 8,
 ) -> List[dict]:
     """Train a JAX/Flax model with REINFORCE + baseline.
 
@@ -225,21 +226,31 @@ def train_jax(
         for ep in range(1, episodes + 1):
             n = ns[(ep - 1) % len(ns)]
 
-            rng, ep_key = jax.random.split(rng)
-            obs_arr, mask_arr, actions, returns, valid, steps = run_episode_jax_padded(
-                model, n, ep_key
-            )
+            # Collect batch_episodes episodes of the same n, stack into a batch
+            batch_obs, batch_mask, batch_act, batch_ret = [], [], [], []
+            total_steps = 0
+            for b in range(batch_episodes):
+                rng, ep_key = jax.random.split(rng)
+                obs_arr, mask_arr, actions, returns, valid, steps = run_episode_jax_padded(
+                    model, n, ep_key
+                )
+                batch_obs.append(obs_arr)
+                batch_mask.append(mask_arr)
+                batch_act.append(actions)
+                batch_ret.append(returns)
+                total_steps += steps
 
-            # convert to jax arrays for the forward/backward pass — fixed shape per n
-            obs_j  = jnp.array(obs_arr)
-            mask_j = jnp.array(mask_arr)
-            act_j  = jnp.array(actions)
-            ret_j  = jnp.array(returns)
+            # Stack: (batch_episodes * max_T, ...) — one big gradient update
+            obs_j  = jnp.array(np.concatenate(batch_obs,  axis=0))
+            mask_j = jnp.array(np.concatenate(batch_mask, axis=0))
+            act_j  = jnp.array(np.concatenate(batch_act,  axis=0))
+            ret_j  = jnp.array(np.concatenate(batch_ret,  axis=0))
 
             loss = train_step_jax(
                 model, optimizer, obs_j, mask_j, act_j, ret_j, value_coef
             )
 
+            steps = total_steps // batch_episodes
             row = dict(episode=ep, n=n, steps=steps, loss=loss)
             history.append(row)
             writer.writerow(row)

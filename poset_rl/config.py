@@ -39,15 +39,16 @@ class ModelConfig:
 
 @dataclass
 class TrainConfig:
-    n_or_range:   Union[int, List[int]] = 5
-    episodes:     int                   = 3000
-    lr:           float                 = 3e-3
-    gamma:        float                 = 0.99
-    grad_clip:    float                 = 1.0
-    value_coef:   float                 = 0.5
-    log_interval: int                   = 500
-    seed:         int                   = 42
-    out_csv:      str                   = "training.csv"
+    n_or_range:     Union[int, List[int]] = 5
+    episodes:       int                   = 3000
+    lr:             float                 = 3e-3
+    gamma:          float                 = 0.99
+    grad_clip:      float                 = 1.0
+    value_coef:     float                 = 0.5
+    log_interval:   int                   = 500
+    seed:           int                   = 42
+    out_csv:        str                   = "training.csv"
+    batch_episodes: int                   = 8
 
 
 @dataclass

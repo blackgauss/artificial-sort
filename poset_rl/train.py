@@ -368,14 +368,15 @@ def train_from_config(cfg, device: str | None = None):
 
         history = train_jax(
             model,
-            n_or_range   = tc.n_or_range,
-            episodes     = tc.episodes,
-            lr           = tc.lr,
-            gamma        = tc.gamma,
-            value_coef   = tc.value_coef,
-            log_interval = tc.log_interval,
-            out_csv      = tc.out_csv,
-            seed         = tc.seed,
+            n_or_range      = tc.n_or_range,
+            episodes        = tc.episodes,
+            lr              = tc.lr,
+            gamma           = tc.gamma,
+            value_coef      = tc.value_coef,
+            log_interval    = tc.log_interval,
+            out_csv         = tc.out_csv,
+            seed            = tc.seed,
+            batch_episodes  = tc.batch_episodes,
         )
         return model, history
 
