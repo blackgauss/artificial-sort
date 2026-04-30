@@ -209,7 +209,7 @@ def train_jax(
     model       : any registered jax_* model (nnx.Module with .act())
     n_or_range  : int for fixed-n; list for curriculum (round-robin)
     """
-    optimizer = nnx.Optimizer(model, optax.adam(lr))
+    optimizer = nnx.Optimizer(model, optax.adam(lr), wrt=nnx.Param)
     ns = [n_or_range] if isinstance(n_or_range, int) else list(n_or_range)
 
     rng = jax.random.PRNGKey(seed)

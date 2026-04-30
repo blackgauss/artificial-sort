@@ -149,7 +149,7 @@ def run_sweep_jax_vmapped(
         model = cls(hidden=mc.hidden, nhead=mc.nhead,
                     nlayers=mc.nlayers, rngs=rngs, **mc.kwargs)
 
-    optimizer = nnx.Optimizer(model, optax.adam(tc.lr))
+    optimizer = nnx.Optimizer(model, optax.adam(tc.lr), wrt=nnx.Param)
     ns = [tc.n_or_range] if isinstance(tc.n_or_range, int) else list(tc.n_or_range)
 
     rng_keys = [jax.random.PRNGKey(s) for s in range(n_seeds)]
@@ -278,7 +278,7 @@ def run_sweep_jax_batched(
         model = cls(hidden=mc.hidden, nhead=mc.nhead,
                     nlayers=mc.nlayers, rngs=rngs, **mc.kwargs)
 
-    optimizer = nnx.Optimizer(model, optax.adam(tc.lr))
+    optimizer = nnx.Optimizer(model, optax.adam(tc.lr), wrt=nnx.Param)
     ns = [tc.n_or_range] if isinstance(tc.n_or_range, int) else list(tc.n_or_range)
 
     rng_keys  = [jax.random.PRNGKey(s) for s in seeds]
