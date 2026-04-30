@@ -79,8 +79,9 @@ if TORCH_AVAILABLE:
             return logits, value
 
         def select_action(self, obs: np.ndarray, mask: np.ndarray):
-            obs_t = torch.from_numpy(obs).unsqueeze(0).float()
-            mask_t = torch.from_numpy(mask).unsqueeze(0).float()
+            device = next(self.parameters()).device
+            obs_t  = torch.from_numpy(obs).unsqueeze(0).float().to(device)
+            mask_t = torch.from_numpy(mask).unsqueeze(0).float().to(device)
             logits, value = self.forward(obs_t, mask_t)
             probs = F.softmax(logits, dim=-1)
             m = torch.distributions.Categorical(probs)

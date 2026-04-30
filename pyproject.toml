@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "artificial-sort"
-version = "0.1.0"
+version = "0.2.0"
 description = "RL agent that learns efficient sorting strategies on partially-ordered sets"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -17,13 +17,20 @@ dependencies = [
 train = [
     "torch>=2.0",
 ]
+notebook = [
+    "torch>=2.0",
+    "matplotlib>=3.7",
+    "ipywidgets>=8.0",
+    "tqdm>=4.0",
+]
 dev = [
     "pytest>=9",
     "torch>=2.0",
 ]
 
 [project.scripts]
-poset-train = "train:main"
+poset-train = "poset_rl.train:main"
+poset-bench = "poset_rl.bench:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
