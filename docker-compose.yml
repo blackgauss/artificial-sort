@@ -33,7 +33,6 @@ services:
       context: .
       dockerfile: docker/Dockerfile.gb10
     image: artificial-sort:gb10
-    user: "${DOCKER_UID:-1002}:${DOCKER_GID:-1002}"   # run as host user so volume writes are owned correctly
     deploy:
       resources:
         reservations:

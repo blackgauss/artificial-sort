@@ -4,37 +4,43 @@
 #   e.g.  ./docker/run_gb10.sh configs/gb10_large.yaml
 #         ./docker/run_gb10.sh configs/gb10_large.yaml --episodes 100000
 #
-# The script:
-#   1. Exports UID/GID so compose mounts files as the current user (no root-owned CSVs)
-#   2. Creates ./runs/ if it doesn't exist
-#   3. Runs docker compose in detached mode and tails the logs
+# Runs as root inside the container (required for CUDA/JAX on some systems).
+# After the run, fix ownership with:  ./docker/run_gb10.sh --fix-perms
 
 set -euo pipefail
-
-CONFIG="${1:-configs/gb10_large.yaml}"
-shift || true   # remaining args forwarded to the training command
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_DIR"
 
-mkdir -p runs
+# --fix-perms: chown runs/ back to the current user
+if [ "${1:-}" = "--fix-perms" ]; then
+    docker run --rm \
+        -v "$REPO_DIR/runs:/app/runs" \
+        alpine \
+        chown -R "$(id -u):$(id -g)" /app/runs
+    echo "✓ Ownership of runs/ fixed to $(id -u):$(id -g)"
+    exit 0
+fi
 
-export DOCKER_UID="$(id -u)"
-export DOCKER_GID="$(id -g)"
+CONFIG="${1:-configs/gb10_large.yaml}"
+shift || true   # remaining args forwarded to the training command
+
+mkdir -p runs
 
 echo "▶ Launching training on GB10"
 echo "  Config : $CONFIG"
-echo "  UID/GID: $DOCKER_UID/$DOCKER_GID"
 echo "  Runs   : $REPO_DIR/runs/"
 echo
 
 docker compose run \
-  --name training_run \
-  --rm \
-  -d \
-  gb10 \
-  python -m poset_rl.train --config "$CONFIG" "$@"
+    --name training_run \
+    -d \
+    gb10 \
+    poset_rl.train --config "$CONFIG" "$@"
 
 echo
-echo "Container started.  Tail logs with:"
+echo "Container started.  Monitor with:"
 echo "  docker logs -f training_run"
+echo
+echo "When training finishes, fix file ownership with:"
+echo "  ./docker/run_gb10.sh --fix-perms"
