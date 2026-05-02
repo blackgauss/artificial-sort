@@ -267,4 +267,12 @@ def train_jax(
         if last:
             print(f"  n={n}  final mean={np.mean(last):.2f}  lb={lb}")
 
+    # Save weights next to the CSV
+    ckpt_path = Path(out_csv).with_suffix(".npz")
+    state     = nnx.state(model)
+    flat      = {"/".join(str(p) for p in path): np.array(leaf)
+                 for path, leaf in jax.tree_util.tree_leaves_with_path(state)}
+    np.savez(ckpt_path, **flat)
+    print(f"  weights saved → {ckpt_path}")
+
     return history
