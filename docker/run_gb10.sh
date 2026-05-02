@@ -19,12 +19,12 @@ cd "$REPO_DIR"
 
 mkdir -p runs
 
-export UID="$(id -u)"
-export GID="$(id -g)"
+export DOCKER_UID="$(id -u)"
+export DOCKER_GID="$(id -g)"
 
 echo "▶ Launching training on GB10"
 echo "  Config : $CONFIG"
-echo "  UID/GID: $UID/$GID"
+echo "  UID/GID: $DOCKER_UID/$DOCKER_GID"
 echo "  Runs   : $REPO_DIR/runs/"
 echo
 
